@@ -18,8 +18,12 @@ export const POST = route(async (req: NextRequest) => {
       user &&
       !user.isSystem &&
       (await bcrypt.compare(password, user.passwordHash));
-   if (!ok || !user)
-      return fail(401, "Wrong email/username or password.");
+   if (!ok || !user) return fail(401, "Wrong email/username or password.");
+   if (!user.emailVerified)
+      return fail(
+         403,
+         "Verify your email before logging in. You can request another verification email below.",
+      );
 
    const remember = body.remember !== false;
    const res = NextResponse.json({ user });

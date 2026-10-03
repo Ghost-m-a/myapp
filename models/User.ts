@@ -12,6 +12,8 @@ export interface IUser {
    username: string;
    passwordHash: string;
    role: "advertiser" | "creator";
+   emailVerified: boolean;
+   emailVerifiedAt: Date | null;
    avatar: string | null;
    credits: number;
    language: "en" | "ar";
@@ -47,6 +49,8 @@ const userSchema = new Schema<IUser>(
       },
       passwordHash: { type: String, required: true },
       role: { type: String, enum: ["advertiser", "creator"], required: true },
+      emailVerified: { type: Boolean, default: true },
+      emailVerifiedAt: { type: Date, default: null },
       avatar: { type: String, default: null },
       credits: { type: Number, default: 100 },
       language: { type: String, enum: ["en", "ar"], default: "en" },

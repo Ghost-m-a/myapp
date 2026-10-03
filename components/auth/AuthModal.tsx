@@ -27,6 +27,7 @@ export function AuthModal() {
    const [open, setOpen] = useState(false);
    const [tab, setTab] = useState<Tab>("login");
    const [error, setError] = useState("");
+   const [notice, setNotice] = useState("");
    const [resetKey, setResetKey] = useState(0);
 
    useEffect(
@@ -34,6 +35,7 @@ export function AuthModal() {
          bus.on("auth:open", (t) => {
             setTab(t === "signup" ? "signup" : "login");
             setError("");
+            setNotice("");
             setOpen(true);
          }),
       [],
@@ -55,6 +57,7 @@ export function AuthModal() {
    const close = useCallback(() => {
       setOpen(false);
       setError("");
+      setNotice("");
       setResetKey((k) => k + 1); // remount faces to reset the forms
    }, []);
 
@@ -96,6 +99,8 @@ export function AuthModal() {
                   active={tab === "login"}
                   error={error}
                   onError={setError}
+                  notice={notice}
+                  onNotice={setNotice}
                   onSuccess={onSuccess}
                   onFlip={() => showTab("signup")}
                />
@@ -105,6 +110,12 @@ export function AuthModal() {
                   onError={setError}
                   onSuccess={onSuccess}
                   onFlip={() => showTab("login")}
+                  notice={notice}
+                  onNotice={setNotice}
+                  onVerificationSent={(email) => {
+                     setNotice(`Verification email sent to ${email}.`);
+                     setTab("login");
+                  }}
                />
             </div>
          </div>
@@ -118,6 +129,12 @@ interface FaceProps {
    onError: (msg: string) => void;
    onSuccess: (user: UserDTO) => Promise<void>;
    onFlip: () => void;
+   notice: string;
+   onNotice: (msg: string) => void;
+}
+
+interface SignupFaceProps extends FaceProps {
+   onVerificationSent: (email: string) => void;
 }
 
 function useAutoFocus(active: boolean) {
@@ -133,9 +150,20 @@ function useAutoFocus(active: boolean) {
    return ref;
 }
 
-function LoginFace({ active, error, onError, onSuccess, onFlip }: FaceProps) {
+function LoginFace({
+   active,
+   error,
+   onError,
+   onSuccess,
+   onFlip,
+   notice,
+   onNotice,
+}: FaceProps) {
    const ref = useAutoFocus(active);
    const [busy, setBusy] = useState(false);
+   const [accountAction, setAccountAction] = useState<
+      "login" | "forgot" | "resend"
+   >("login");
 
    async function onSubmit(e: FormEvent<HTMLFormElement>) {
       e.preventDefault();
@@ -154,6 +182,30 @@ function LoginFace({ active, error, onError, onSuccess, onFlip }: FaceProps) {
             },
          });
          await onSuccess(user);
+         onNotice("");
+      } catch (err) {
+         onError((err as Error).message);
+      } finally {
+         setBusy(false);
+      }
+   }
+
+   async function onAccountEmail(e: FormEvent<HTMLFormElement>) {
+      e.preventDefault();
+      const data = new FormData(e.currentTarget);
+      setBusy(true);
+      onError("");
+      onNotice("");
+      try {
+         const endpoint =
+            accountAction === "forgot"
+               ? "/auth/password/forgot"
+               : "/auth/email/resend";
+         const { message } = await api<{ message: string }>(endpoint, {
+            method: "POST",
+            body: { email: data.get("email") },
+         });
+         onNotice(message);
       } catch (err) {
          onError((err as Error).message);
       } finally {
@@ -169,63 +221,143 @@ function LoginFace({ active, error, onError, onSuccess, onFlip }: FaceProps) {
          ref={ref}
       >
          <AuthHeader
-            title="Welcome back"
-            subtitle="Enter your credentials to access your workspace"
+            title={
+               accountAction === "login"
+                  ? "Welcome back"
+                  : accountAction === "forgot"
+                    ? "Reset your password"
+                    : "Verify your email"
+            }
+            subtitle={
+               accountAction === "login"
+                  ? "Enter your credentials to access your workspace"
+                  : "Enter your account email and we will send a secure link."
+            }
          />
          <p className="error" role="alert" hidden={!error}>
             {error}
          </p>
-
-         <form id="loginForm" className="auth-form" onSubmit={onSubmit}>
-            <InputField
-               label="Email or Username"
-               icon="mail"
-               name="identifier"
-               placeholder="name@company.com"
-               autoComplete="username"
-            />
-            <PasswordField placeholder="Your password" />
-
-            <div className="auth-row">
-               <label className="check">
-                  <input type="checkbox" name="remember" defaultChecked />{" "}
-                  Remember me
-               </label>
-               <button
-                  type="button"
-                  className="link-btn underline"
-                  onClick={() => onError("Password reset isn't available yet.")}
-               >
-                  Forgot Password?
-               </button>
-            </div>
-
-            <button
-               type="submit"
-               className="btn btn-primary btn-block"
-               disabled={busy}
-            >
-               Log In
-            </button>
-         </form>
-
-         <SocialButtons
-            providers={["Google", "Apple"]}
-            label="or continue with"
-            onSocial={(p) => onError(`${p} login isn't available yet.`)}
-         />
-
-         <p className="switch-text">
-            Don&apos;t have an account?{" "}
-            <button type="button" className="link-btn" onClick={onFlip}>
-               Sign up
-            </button>
+         <p className="auth-notice" role="status" hidden={!notice}>
+            {notice}
          </p>
+
+         {accountAction === "login" ? (
+            <>
+               <form id="loginForm" className="auth-form" onSubmit={onSubmit}>
+                  <InputField
+                     label="Email or Username"
+                     icon="mail"
+                     name="identifier"
+                     placeholder="name@company.com"
+                     autoComplete="username"
+                  />
+                  <PasswordField placeholder="Your password" />
+
+                  <div className="auth-row">
+                     <label className="check">
+                        <input type="checkbox" name="remember" defaultChecked />{" "}
+                        Remember me
+                     </label>
+                     <button
+                        type="button"
+                        className="link-btn underline"
+                        onClick={() => {
+                           setAccountAction("forgot");
+                           onError("");
+                           onNotice("");
+                        }}
+                     >
+                        Forgot Password?
+                     </button>
+                  </div>
+
+                  <button
+                     type="submit"
+                     className="btn btn-primary btn-block"
+                     disabled={busy}
+                  >
+                     Log In
+                  </button>
+               </form>
+
+               <SocialButtons
+                  providers={["Google", "Apple"]}
+                  label="or continue with"
+                  onSocial={(p) => onError(`${p} login isn't available yet.`)}
+               />
+
+               <p className="switch-text">
+                  Don&apos;t have an account?{" "}
+                  <button type="button" className="link-btn" onClick={onFlip}>
+                     Sign up
+                  </button>
+               </p>
+               <p className="switch-text">
+                  Didn&apos;t get a verification email?{" "}
+                  <button
+                     type="button"
+                     className="link-btn"
+                     onClick={() => {
+                        setAccountAction("resend");
+                        onError("");
+                        onNotice("");
+                     }}
+                  >
+                     Resend it
+                  </button>
+               </p>
+            </>
+         ) : (
+            <>
+               <form className="auth-form" onSubmit={onAccountEmail}>
+                  <label className="field-label">
+                     Email
+                     <input
+                        name="email"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        placeholder="name@company.com"
+                     />
+                  </label>
+                  <button
+                     type="submit"
+                     className="btn btn-primary btn-block"
+                     disabled={busy}
+                  >
+                     {busy
+                        ? "Sending..."
+                        : accountAction === "forgot"
+                          ? "Send reset link"
+                          : "Resend verification"}
+                  </button>
+               </form>
+               <p className="switch-text">
+                  <button
+                     type="button"
+                     className="link-btn"
+                     onClick={() => {
+                        setAccountAction("login");
+                        onError("");
+                        onNotice("");
+                     }}
+                  >
+                     Back to log in
+                  </button>
+               </p>
+            </>
+         )}
       </section>
    );
 }
 
-function SignupFace({ active, error, onError, onSuccess, onFlip }: FaceProps) {
+function SignupFace({
+   active,
+   error,
+   onError,
+   onFlip,
+   onVerificationSent,
+}: SignupFaceProps) {
    const ref = useAutoFocus(active);
    const [avatar, setAvatar] = useState<string | null>(null);
    const [busy, setBusy] = useState(false);
@@ -250,19 +382,22 @@ function SignupFace({ active, error, onError, onSuccess, onFlip }: FaceProps) {
 
       setBusy(true);
       try {
-         const { user } = await api<{ user: UserDTO }>("/auth/signup", {
-            method: "POST",
-            body: {
-               name: data.get("name"),
-               email: data.get("email"),
-               password: data.get("password"),
-               role: data.get("role"),
-               avatar,
-               ref: localStorage.getItem("ref") || undefined, // referral link code
+         await api<{ ok: boolean; verificationRequired: boolean }>(
+            "/auth/signup",
+            {
+               method: "POST",
+               body: {
+                  name: data.get("name"),
+                  email: data.get("email"),
+                  password: data.get("password"),
+                  role: data.get("role"),
+                  avatar,
+                  ref: localStorage.getItem("ref") || undefined, // referral link code
+               },
             },
-         });
+         );
          localStorage.removeItem("ref");
-         await onSuccess(user);
+         onVerificationSent(String(data.get("email") || ""));
       } catch (err) {
          onError((err as Error).message);
       } finally {

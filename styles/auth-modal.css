@@ -31,6 +31,9 @@ body.modal-open {
    backdrop-filter: blur(10px);
    animation: fade 0.2s ease-out;
 }
+.modal[hidden] {
+   display: none;
+}
 
 /* ---------- Flip card ---------- */
 .auth-card {
@@ -315,6 +318,39 @@ body.modal-open {
    border: 1px solid rgba(254, 202, 202, 0.45);
    border-radius: 10px;
    font-size: 0.88rem;
+}
+
+.auth-notice {
+   margin-bottom: 14px;
+   padding: 10px 12px;
+   color: #dcfce7;
+   background: rgba(22, 101, 52, 0.34);
+   border: 1px solid rgba(187, 247, 208, 0.42);
+   border-radius: 10px;
+   font-size: 0.88rem;
+}
+
+.auth-action-wrap {
+   display: grid;
+   min-height: min(70vh, 620px);
+   place-items: center;
+   padding: 24px 0;
+}
+.auth-action {
+   width: min(100%, 480px);
+}
+.auth-action h1 {
+   margin: 5px 0 10px;
+}
+.auth-action-copy {
+   margin-bottom: 20px;
+   color: var(--muted);
+}
+.auth-action .error {
+   margin: 0 0 18px;
+}
+.auth-action .form {
+   margin-top: 20px;
 }
 
 /* ---------- Divider + stacked socials ---------- */

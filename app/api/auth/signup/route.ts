@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import connectDB from "@/lib/db";
 import { route, fail } from "@/lib/http";
-import { signToken, setAuthCookie } from "@/lib/auth";
-import { ensureTeam, welcome } from "@/lib/team";
+import { ensureTeam } from "@/lib/team";
+import { sendVerificationEmail } from "@/lib/auth-tokens";
 import User from "@/models/User";
 import Notification from "@/models/Notification";
 
@@ -35,8 +35,7 @@ export const POST = route(async (req: NextRequest) => {
       .toLowerCase();
    const { password, role, avatar, ref } = body;
 
-   if (!name || name.length > 60)
-      return fail(400, "Please enter your name.");
+   if (!name || name.length > 60) return fail(400, "Please enter your name.");
    if (!EMAIL.test(email)) return fail(400, "Please enter a valid email.");
    if (typeof password !== "string" || password.length < 6)
       return fail(400, "Password must be at least 6 characters.");
@@ -62,14 +61,18 @@ export const POST = route(async (req: NextRequest) => {
       username: await makeUsername(email),
       passwordHash: await bcrypt.hash(password, 10),
       role,
+      emailVerified: false,
       avatar: avatar || null,
       referredBy: referrer ? referrer._id : null,
       referralCode: crypto.randomBytes(4).toString("hex"),
    });
 
    await Notification.insertMany([
-      { user: user.id, text: "Welcome to MyApp! Your account is ready." },
-      { user: user.id, text: "You received 100 free credits." },
+      { user: user.id, text: "Verify your email to activate your account." },
+      {
+         user: user.id,
+         text: "Your 100 free credits will be ready after verification.",
+      },
    ]);
    if (referrer) {
       await Notification.create({
@@ -77,9 +80,18 @@ export const POST = route(async (req: NextRequest) => {
          text: `${name} joined using your referral link.`,
       });
    }
-   await welcome(user).catch(console.error);
+   try {
+      await sendVerificationEmail(user);
+   } catch (err) {
+      console.error("Signup verification email failed:", err);
+      return fail(
+         503,
+         "Your account was created, but the verification email could not be sent. Please request another email from the login screen.",
+      );
+   }
 
-   const res = NextResponse.json({ user }, { status: 201 });
-   setAuthCookie(res, signToken(user.id, true), true);
-   return res;
+   return NextResponse.json(
+      { ok: true, verificationRequired: true },
+      { status: 201 },
+   );
 });
