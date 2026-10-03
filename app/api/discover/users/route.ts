@@ -10,12 +10,14 @@ export const GET = route(async (req: NextRequest) => {
    const q = String(req.nextUrl.searchParams.get("q") || "")
       .trim()
       .slice(0, 40);
+   const role = req.nextUrl.searchParams.get("role");
    if (q.length < 2) return NextResponse.json({ users: [] });
 
    const rx = { $regex: escapeRegex(q), $options: "i" };
    const users = await User.find({
       _id: { $ne: me._id },
       isSystem: { $ne: true },
+      ...(role === "creator" || role === "advertiser" ? { role } : {}),
       $or: [{ name: rx }, { username: rx }],
    }).limit(8);
 
