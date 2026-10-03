@@ -1,20 +1,26 @@
 {
    "name": "my-fullstack-app",
-   "version": "1.0.0",
-   "description": "",
-   "main": "index.js",
+   "version": "2.0.0",
+   "private": true,
    "scripts": {
-      "dev": "node --watch --env-file=.env server/dev.js",
-      "test": "echo \"Error: no test specified\" && exit 1"
+      "dev": "next dev",
+      "build": "next build",
+      "start": "next start",
+      "typecheck": "tsc --noEmit"
    },
-   "keywords": [],
-   "author": "",
-   "license": "ISC",
    "dependencies": {
       "bcryptjs": "^3.0.3",
-      "cookie-parser": "^1.4.7",
-      "express": "^5.2.1",
       "jsonwebtoken": "^9.0.3",
-      "mongoose": "^9.10.3"
+      "mongoose": "^9.10.3",
+      "next": "^16.3.8",
+      "react": "^19.3.0",
+      "react-dom": "^19.3.0"
+   },
+   "devDependencies": {
+      "@types/jsonwebtoken": "^9.0.10",
+      "@types/node": "^24",
+      "@types/react": "^19",
+      "@types/react-dom": "^19",
+      "typescript": "^5.9.3"
    }
 }
